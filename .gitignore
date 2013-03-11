@@ -1,0 +1,29 @@
+# Bit Zeppelin .gitignore (iPhone projects)
+# based on http://sujee.net/tech/articles/gitignore/
+
+#python specific
+*.pyc
+
+# Mac OS X Finder and whatnot
+.DS_Store
+
+# virtualdev
+env/
+
+#static
+static/*
+media/*
+
+# Other source repository archive directories (protects when importing)
+.hg
+.svn
+CVS
+
+# automatic backup and temporary files files
+*.out
+*.tmp
+*~.nib
+*.swp
+*~
+*.lock
+pylint

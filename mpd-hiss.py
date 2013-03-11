@@ -8,7 +8,7 @@ import socket
 import sys
 import time
 
-import Growl
+import gntp.notifier
 import mpd
 
 def msg(text):
@@ -99,7 +99,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 msg("Registering Growl notifier...")
-growler = Growl.GrowlNotifier(
+growler = gntp.notifier.GrowlNotifier(
     applicationName = "mpd-hiss",
     notifications = ["Now Playing"]
 )
