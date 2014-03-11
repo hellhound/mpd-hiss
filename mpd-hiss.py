@@ -1,21 +1,117 @@
 #!/usr/bin/env python
-import argparse
+from __future__ import division
 import logging
+import argparse
 import mpd
 import os
 import re
 import socket
 import sys
-from os.path import dirname, basename
+from os.path import abspath, expanduser, dirname, basename
 from time import sleep
 
-from utils import hms, load_scaled_image, full_path
+
+try:
+    from io import BytesIO as Buffer
+except:
+    from StringIO import StringIO as Buffer
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 
-if sys.platform == "darwin":
-    from growl_notify import notify, native_load_image
-else:
-    from dbus_notify import notify, native_load_image
+logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s',
+                    date_format = '%Y-%m-%d %H:%M:%S',
+                    level=logging.INFO)
+
+
+# Python 2/3 compat
+try:
+    unicode
+    def is_string(obj):
+        return isinstance(obj, (str, unicode))
+except NameError:
+    def is_string(obj):
+        return isinstance(obj, (str, bytes))
+
+
+def full_path(rel_path):
+    return abspath(expanduser(rel_path))
+
+
+def hms(seconds):
+    h, m, s = seconds // 3600, seconds % 3600 // 60, seconds % 60
+    result = "{minutes:02d}:{seconds:02d}".format(minutes = m, seconds = s)
+    if h > 0:
+        result = "{hours:02d}:".format(hours = h) + result
+    return result
+
+
+def load_scaled_image(image, scale=(128, 64)):
+    if Image is None:
+        # Not supported
+        return None
+
+    im = Image.open(image)
+    im.thumbnail(scale, Image.ANTIALIAS)
+
+    # Transparent PNGs were broken without this?
+    # Who knows why.
+    if im.mode == "RGBA":
+        fixed = Image.new("RGBA", im.size)
+        fixed.paste(im, (0, 0), mask=im)
+        im = fixed
+    else:
+        im = im.convert("RGBA")
+
+    return im
+
+
+def growl_raw_image(image):
+    """Convert image for Growl"""
+    b = Buffer()
+    image.save(b, 'PNG')
+    return b.getvalue()
+
+
+def load_image_legacy(image):
+    return growl.Image.imageFromPath(image)
+
+
+def load_image_gntp(image):
+    with open(image, "rb") as handle:
+        return handle.read()
+
+
+try:
+    import gntp.notifier as growl
+    native_load_image = load_image_gntp
+    logging.debug("Growl version: gntp")
+
+except ImportError:
+    import Growl as growl
+    native_load_image = load_image_legacy
+    logging.debug("Growl version: legacy")
+
+
+logging.debug("Registering Growl notifier...")
+
+growler = growl.GrowlNotifier(applicationName="mpd-hiss",
+                              notifications=["Now Playing"])
+growler.register()
+logging.debug("Registered.")
+
+
+def notify(title, description, icon):
+    if icon and not is_string(icon):
+        icon = growl_raw_image(icon)
+
+    growler.notify(noteType="Now Playing",
+                   title=title,
+                   description=description,
+                   icon=icon)
 
 
 def load_image(filename, scale):
